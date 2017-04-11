@@ -6,7 +6,7 @@ function randomFunction() {
 	// config.loggingEnabled = false;
 	config.displayStack = true;
 	config.showCPUInfo = true;
-	logger.trace(config, {EVENT : 'My first log'});	
+	logger.trace(config, {EVENT : 'My first log'}, {EVENT : 'My second log' });	
 }
 
 

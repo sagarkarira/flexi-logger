@@ -3,7 +3,10 @@ const moment = require('moment');
 const os = require('os');
 
 exports.trace = trace;
-
+exports.debug = debug;
+exports.info = info;
+exports.warn = warn;
+exports.error = error;
 
 var levels = {
     trace: 0,
@@ -14,20 +17,23 @@ var levels = {
 };
 
 
-const defaults = {
+const defaultConfig = {
 	loggingEnabled: true,
     defaultLoggingLevel: levels.trace, 
+
+    utcDelay : 330, 
     
  	showCPUInfo : false,
     
     timestampPattern : 'ddd MMM DD h:mm:ss YYYY', 
-    showTimestamp : true, 
+    showTimestamp : false, 
 
     displayStack : false, 
     stackDepth : 3, 
 
     showFileName : true, 
-    showFunctionName : true
+    showFunctionName : true, 
+    showLineNumber : true 
 };
 
 
@@ -39,15 +45,8 @@ const defaults = {
 *									Rest all needs to be printed
 **/
 function log(loggingLevel, loggingParameters) {
-
 	let stackObj = stack();
-	// for (var i in stackObj) {
-	// 	console.log(stackObj[i].getFunctionName());
-	// }
-	let fileName = stackObj[2].getFileName();
-	let functionName = stackObj[2].getFunctionName() || 'anonymous';
-	let lineNumber = stackObj[2].getLineNumber();
-
+	
     // var handlingInfo = loggingParameters[0];
     // var apiModule = handlingInfo.apiModule;
     // var apiHandler = handlingInfo.apiHandler;
@@ -62,56 +61,78 @@ function log(loggingLevel, loggingParameters) {
     // if (loggingLevel === levels.error) {
     //     stream = process.stderr;
     // }
-    let execConfig = defaults;
+    let execConfig = defaultConfig;
     let localConfig = loggingParameters['0'];
-    delete loggingParameters['0'];
+    delete loggingParameters['0'];  //delete the first argument i.e localConfig.
 
     Object.keys(execConfig).map((key)=>{
     	if (localConfig[key] !== undefined){
     		execConfig[key] = localConfig[key];
     	}	 
     });
-    let output = '';
-	output += showTimeStamp(execConfig);
-  	output += showFileName(execConfig, fileName);
-    output += showFunctionName(execConfig, functionName);
-    output += showStackTrace(execConfig, stackObj);
-    output += showCPUInfo(execConfig);
 
-    console.log('***************************' + output + '***************************************');
+    printLoggingParameters(execConfig, loggingLevel, loggingParameters, stackObj );
+
+    let output = '';
+	output += showStackTrace(execConfig, stackObj);
+    output += showCPUInfo(execConfig);
+   	console.log(output);
+    
+}
+
+
+function printLoggingParameters(execConfig, loggingLevel, loggingParameters, stackObj ) {    
+   	
+   	console.log(`*************************** Logging Parameters *********************************\n`);
+
+   
     Object.keys(loggingParameters).forEach((parameter)=>{
-   		console.log(JSON.stringify(loggingParameters[parameter]) + '\n');
-   		return ;
+		let output = '';
+		output += showTimeStamp(execConfig);
+		output += showFileName(execConfig, stackObj);
+		output += showFunctionName(execConfig, stackObj);
+		output += showLineNumber(execConfig, stackObj);
+   		console.log( output + JSON.stringify(loggingParameters[parameter]) + '\n');
     });
 }
 
 
-
 function showTimeStamp(execConfig) {
 	if (!execConfig.showTimestamp) {
-		return;
+		return '';
 	}
-	return moment().utc().add(330, 'minutes').format(execConfig.timestampPattern) + '~~~~~~'
+	return moment().utc().add(330, 'minutes').format(execConfig.timestampPattern) + '::::::::'
 }
 
-function showFileName(execConfig, fileName) {
+function showFileName(execConfig, stackObj) {
 	if (!execConfig.showFileName) {
-		return;
+		return '';
 	}
-	return fileName + '~~~~~~';
+	let fileName = stackObj[2].getFileName().replace(__dirname+'/', '');
+	return fileName + '::::::::';
 
 }
 
-function showFunctionName(execConfig, functionName) {
+function showFunctionName(execConfig, stackObj) {
 	if (!execConfig.showFunctionName) {
-		return;
+		return '';
 	}
-	return functionName + '~~~~~~'; 
+	let functionName = stackObj[2].getFunctionName() || 'anonymous';
+	return functionName + '::::::::'; 
+}
+
+function showLineNumber(execConfig, stackObj) {
+	if (!execConfig.showFileName) {
+		return '';
+	}
+	let lineNumber = stackObj[2].getLineNumber();
+	return lineNumber + '::::::::';
+
 }
 
 function showStackTrace(execConfig, stackObj ) {
 	if (!execConfig.displayStack) {
-		return;
+		return '';
 	}
 	let stackDepth = execConfig.stackDepth;
 	let output = '\n ******** Stack Trace ******* \n';
@@ -132,7 +153,7 @@ function showStackTrace(execConfig, stackObj ) {
 
 function showCPUInfo(execConfig) {
 	if (!execConfig.showCPUInfo) {
-		return;
+		return '';
 	}
 	let output = `\n ******** OS Info ******* \n`;
 	output += `Hostname :  ${os.hostname()}  \n`;
@@ -150,8 +171,24 @@ function showCPUInfo(execConfig) {
 }
 
 
+
 function trace(/* arguments */) {
     log(levels.trace, arguments);
 }
 
+function debug(/* arguments */) {
+    log(levels.debug, arguments);
+}
+
+function info(/* arguments */) {
+    log(levels.info, arguments);
+}
+
+function warn(/* arguments */) {
+    log(levels.warn, arguments);
+}
+
+function error(/* arguments */) {
+    log(levels.error, arguments);
+}
 

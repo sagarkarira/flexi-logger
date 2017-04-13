@@ -1,6 +1,8 @@
 const stack = require('callsite');
 const moment = require('moment');
 const os = require('os');
+const colors = require('colors');
+const debugLog = require('debug')('logger');
 
 exports.trace = trace;
 exports.debug = debug;
@@ -16,6 +18,18 @@ var levels = {
     error: 4
 };
 
+colors.setTheme({
+	trace : 'bgGreen', 
+	debug : 'bgBlue', 
+	info : 	'bgGreen', 
+	warn : 'bgYellow', 
+	error : 'bgRed', 
+	red : 'red', 
+	blue : 'blue', 
+	green : 'green'
+});
+
+
 
 const defaultConfig = {
 	loggingEnabled: true,
@@ -23,18 +37,23 @@ const defaultConfig = {
 
     utcDelay : 330, 
     
+    showLevel : false, 
  	showCPUInfo : false,
     
-    timestampPattern : 'ddd MMM DD h:mm:ss YYYY', 
-    showTimestamp : false, 
+    timestampPattern : 'hh:mm:ss MM-DD-YY', 
+    showTimestamp : true, 
 
     displayStack : false, 
     stackDepth : 3, 
 
     showFileName : true, 
     showFunctionName : true, 
-    showLineNumber : true 
+    showLineNumber : true , 
+
+    showLoggingInterval : true
 };
+
+let lastLogTime = new Date();
 
 
 /**
@@ -47,7 +66,33 @@ const defaultConfig = {
 function log(loggingLevel, loggingParameters) {
 	let stackObj = stack();
 	
-    // var handlingInfo = loggingParameters[0];
+    
+    let execConfig = defaultConfig;
+    let localConfig = loggingParameters['0'];
+    delete loggingParameters['0'];  //delete the first argument i.e localConfig.
+
+    Object.keys(execConfig).map((key)=>{
+    	if (localConfig[key] !== undefined){
+    		execConfig[key] = localConfig[key];
+    	}	 
+    });
+
+    printLoggingParameters(execConfig, loggingLevel, loggingParameters, stackObj);
+    // printOptionalParameters(execConfig, stackObj);
+
+}
+
+
+function printOptionalParameters(execConfig, stackObj) {
+	let output = '';
+	output += showStackTrace(execConfig, stackObj);
+    output += showCPUInfo(execConfig);
+   	console.log(output);
+}
+
+
+function printLoggingParameters(execConfig, loggingLevel, loggingParameters, stackObj ) {    
+   	// var handlingInfo = loggingParameters[0];
     // var apiModule = handlingInfo.apiModule;
     // var apiHandler = handlingInfo.apiHandler;
 
@@ -61,47 +106,36 @@ function log(loggingLevel, loggingParameters) {
     // if (loggingLevel === levels.error) {
     //     stream = process.stderr;
     // }
-    let execConfig = defaultConfig;
-    let localConfig = loggingParameters['0'];
-    delete loggingParameters['0'];  //delete the first argument i.e localConfig.
-
-    Object.keys(execConfig).map((key)=>{
-    	if (localConfig[key] !== undefined){
-    		execConfig[key] = localConfig[key];
-    	}	 
-    });
-
-    printLoggingParameters(execConfig, loggingLevel, loggingParameters, stackObj );
-
-    let output = '';
-	output += showStackTrace(execConfig, stackObj);
-    output += showCPUInfo(execConfig);
-   	console.log(output);
-    
-}
-
-
-function printLoggingParameters(execConfig, loggingLevel, loggingParameters, stackObj ) {    
-   	
-   	console.log(`*************************** Logging Parameters *********************************\n`);
-
-   
     Object.keys(loggingParameters).forEach((parameter)=>{
+    	let defaultLoggingLevel = execConfig.defaultLoggingLevel;
+
 		let output = '';
+		output += showLevel(execConfig, loggingLevel, stackObj);
 		output += showTimeStamp(execConfig);
 		output += showFileName(execConfig, stackObj);
 		output += showFunctionName(execConfig, stackObj);
 		output += showLineNumber(execConfig, stackObj);
-   		console.log( output + JSON.stringify(loggingParameters[parameter]) + '\n');
+   		output += JSON.stringify(loggingParameters[parameter]);
+   		output += showLoggingInterval(execConfig);
     });
 }
 
+
+
+function showLevel(execConfig, loggingLevel, stackObj) {
+	if (execConfig.showLevel) {
+		return '';
+	}
+	let level = stackObj[1].getFunctionName();
+	return colors[level].white(level) + ' ';
+}
 
 function showTimeStamp(execConfig) {
 	if (!execConfig.showTimestamp) {
 		return '';
 	}
-	return moment().utc().add(330, 'minutes').format(execConfig.timestampPattern) + '::::::::'
+
+	return  colors.blue(moment().utc().add(330, 'minutes').format(execConfig.timestampPattern))  + ' ';
 }
 
 function showFileName(execConfig, stackObj) {
@@ -109,7 +143,7 @@ function showFileName(execConfig, stackObj) {
 		return '';
 	}
 	let fileName = stackObj[2].getFileName().replace(__dirname+'/', '');
-	return fileName + '::::::::';
+	return colors.green(fileName + ':');
 
 }
 
@@ -118,7 +152,7 @@ function showFunctionName(execConfig, stackObj) {
 		return '';
 	}
 	let functionName = stackObj[2].getFunctionName() || 'anonymous';
-	return functionName + '::::::::'; 
+	return colors.green(functionName + ''); 
 }
 
 function showLineNumber(execConfig, stackObj) {
@@ -126,8 +160,19 @@ function showLineNumber(execConfig, stackObj) {
 		return '';
 	}
 	let lineNumber = stackObj[2].getLineNumber();
-	return lineNumber + '::::::::';
+	return colors.italic(' at line: ' + lineNumber + '  ==>  ');
 
+}
+
+
+function showLoggingInterval(execConfig) {
+	if (!execConfig.showLoggingInterval) {
+		return '';
+	}
+	let output =  colors.magenta( ' +' + moment().diff(moment(lastLogTime), 'milliseconds') + 'ms');
+	lastLogTime = new Date();
+	return output;
+	
 }
 
 function showStackTrace(execConfig, stackObj ) {

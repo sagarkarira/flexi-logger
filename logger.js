@@ -32,8 +32,8 @@ colors.setTheme({
 
 
 const defaultConfig = {
-	loggingEnabled: true,
-    defaultLoggingLevel: levels.trace, 
+	loggingEnabled: false,
+    defaultLoggingLevel: 'trace', 
 
     utcDelay : 330, 
     
@@ -65,7 +65,6 @@ let lastLogTime = new Date();
 **/
 function log(loggingLevel, loggingParameters) {
 	let stackObj = stack();
-	
     
     let execConfig = defaultConfig;
     let localConfig = loggingParameters['0'];
@@ -91,32 +90,47 @@ function printOptionalParameters(execConfig, stackObj) {
 }
 
 
+/** Need to made it more understandable 
+	@todo 
+	1. remove too many ifelse
+	2. improvise if else condition 
+	3. Add error stack functionality in case of error
+*/
 function printLoggingParameters(execConfig, loggingLevel, loggingParameters, stackObj ) {    
-   	// var handlingInfo = loggingParameters[0];
-    // var apiModule = handlingInfo.apiModule;
-    // var apiHandler = handlingInfo.apiHandler;
 
-    // var defaultLoggingLevel = debuggingPermissions[apiModule].defaultLoggingLevel;
+    Object.keys(loggingParameters).forEach((index)=>{
+    	let output = '';
 
-    // if (loggingLevel !== levels.error && (!isLoggingEnabled(apiModule, apiHandler) || loggingLevel > defaultLoggingLevel)) {
-    //     return;
-    // }
+    	let defaultLoggingLevel = levels[execConfig.defaultLoggingLevel];
+		// console.log('DLL: ' + defaultLoggingLevel , 'CLL: ' +loggingLevel );
+    	 
+    	// always print error ,  return when logging is disabled ,
+    	if ((loggingLevel < defaultLoggingLevel || execConfig.loggingEnabled === false) &&  loggingLevel !== levels.error) {
+    		return;
+    	}
 
-    // var stream = process.stdout;
-    // if (loggingLevel === levels.error) {
-    //     stream = process.stderr;
-    // }
-    Object.keys(loggingParameters).forEach((parameter)=>{
-    	let defaultLoggingLevel = execConfig.defaultLoggingLevel;
-
-		let output = '';
 		output += showLevel(execConfig, loggingLevel, stackObj);
 		output += showTimeStamp(execConfig);
 		output += showFileName(execConfig, stackObj);
 		output += showFunctionName(execConfig, stackObj);
 		output += showLineNumber(execConfig, stackObj);
-   		output += JSON.stringify(loggingParameters[parameter]);
-   		output += showLoggingInterval(execConfig);
+
+
+    	if (loggingParameters[index] instanceof Error) {
+			output += loggingParameters[index].message;	 
+			// console.log(loggingParameters[index]); //show error stack error trace
+    	} else if (typeof loggingParameters[index] === 'object') {   //not the right check for object. 
+    		output += JSON.stringify(loggingParameters[index]);	    	
+    	} else {
+    		output += loggingParameters[index];
+    	}	    
+	    output += showLoggingInterval(execConfig) + '\n';
+    	if (loggingLevel === levels.error) {
+    		process.stderr.write(output);
+    	}else{
+    		process.stdout.write(output);	
+    	}
+
     });
 }
 
